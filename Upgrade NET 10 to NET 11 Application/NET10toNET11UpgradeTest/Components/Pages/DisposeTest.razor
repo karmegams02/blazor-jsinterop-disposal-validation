@@ -1,0 +1,33 @@
+﻿@page "/testing"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+<h3>IJSObjectReference.DisposeAsync suppresses JSDisconnectedException</h3>
+
+@if (_testMessage is not null)
+{
+    <p>@_testMessage</p>
+}
+
+@code {
+    private IJSObjectReference? _module;
+    private string? _testMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./myModule.js");
+            _testMessage = await _module.InvokeAsync<string>("getTestMessage");
+            StateHasChanged();
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.DisposeAsync();
+            Console.WriteLine("DisposeAsync called");
+        }
+    }
+}
