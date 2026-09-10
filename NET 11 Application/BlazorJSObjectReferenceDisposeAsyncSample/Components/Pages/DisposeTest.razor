@@ -10,6 +10,7 @@
 }
 
 @code {
+    private static int _disposalSequence;
     private IJSObjectReference? _module;
     private string? _testMessage;
 
@@ -17,17 +18,31 @@
     {
         if (firstRender)
         {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./myModule.js");
-            _testMessage = await _module.InvokeAsync<string>("getTestMessage");
-            StateHasChanged();
+            try
+            {
+                _module = await JS.InvokeAsync<IJSObjectReference>("import", "./myModule.js");
+                _testMessage = await _module.InvokeAsync<string>("getTestMessage");
+                StateHasChanged();
+            }
+            catch (JSException exception)
+            {
+                Console.WriteLine($"JavaScript module initialization failed: {exception.Message}");
+                throw;
+            }
         }
     }
     public async ValueTask DisposeAsync()
     {
-        if (_module is not null)
+        var disposalSequence = Interlocked.Increment(ref _disposalSequence);
+
+        if (_module is null)
         {
-            await _module.DisposeAsync();
-            Console.WriteLine("DisposeAsync called");
+            Console.WriteLine($"[Disposal #{disposalSequence}] No module initialized; skipping _module.DisposeAsync()");
+            return;
         }
+
+        Console.WriteLine($"[Disposal #{disposalSequence}] Before _module.DisposeAsync()");
+        await _module.DisposeAsync();
+        Console.WriteLine($"[Disposal #{disposalSequence}] After _module.DisposeAsync()");
     }
 }
