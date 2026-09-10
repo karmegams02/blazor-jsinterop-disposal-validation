@@ -1,0 +1,48 @@
+﻿@page "/testing"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+<h3>IJSObjectReference.DisposeAsync suppresses JSDisconnectedException</h3>
+
+@if (_testMessage is not null)
+{
+    <p>@_testMessage</p>
+}
+
+@code {
+    private static int _disposalSequence;
+    private IJSObjectReference? _module;
+    private string? _testMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _module = await JS.InvokeAsync<IJSObjectReference>("import", "./myModule.js");
+                _testMessage = await _module.InvokeAsync<string>("getTestMessage");
+                StateHasChanged();
+            }
+            catch (JSException exception)
+            {
+                Console.WriteLine($"JavaScript module initialization failed: {exception.Message}");
+                throw;
+            }
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        var disposalSequence = Interlocked.Increment(ref _disposalSequence);
+
+        if (_module is null)
+        {
+            Console.WriteLine($"[Disposal #{disposalSequence}] No module initialized; skipping _module.DisposeAsync()");
+            return;
+        }
+
+        Console.WriteLine($"[Disposal #{disposalSequence}] Before _module.DisposeAsync()");
+        await _module.DisposeAsync();
+        Console.WriteLine($"[Disposal #{disposalSequence}] After _module.DisposeAsync()");
+    }
+}
